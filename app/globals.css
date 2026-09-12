@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #e8c547;
+  --gold-dim: #b8942a;
+  --pitch: #07140f;
+  --card: rgba(255, 255, 255, 0.04);
+}
+
+@theme inline {
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-bebas);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #05070a;
+  color: #f4f1e8;
+  min-height: 100vh;
+}
+
+::selection {
+  background: #e8c547;
+  color: #05070a;
+}
+
+.pitch-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232, 197, 71, 0.16), transparent),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(16, 90, 58, 0.22), transparent),
+    linear-gradient(180deg, #05070a 0%, #07140f 50%, #05070a 100%);
+}
+
+.glass {
+  background: rgba(8, 12, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.live-pulse {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.ticker {
+  animation: ticker 40s linear infinite;
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
