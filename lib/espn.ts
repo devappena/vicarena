@@ -1,4 +1,5 @@
-import { COMPETITIONS, getCompetition, getCompetitionByEspnId } from "./competitions";
+import { connection } from "next/server";
+import { COMPETITIONS, FEATURED_SLUGS, getCompetition, getCompetitionByEspnId } from "./competitions";
 import { espnDate, shiftEspnDate } from "./format";
 import type {
   FormGame,
@@ -96,10 +97,39 @@ function dateRange(daysAhead = 6) {
   return `${start}-${shiftEspnDate(start, daysAhead)}`;
 }
 
+const SCOREBOARD_SAFE_LIMIT = 150;
+
+const BOARD_SLUGS = [
+  ...FEATURED_SLUGS,
+  "eng.2",
+  "fra.2",
+  "esp.2",
+  "ita.2",
+  "ger.2",
+  "ned.1",
+  "por.1",
+  "bel.1",
+  "sco.1",
+  "tur.1",
+  "usa.1",
+  "mex.1",
+  "bra.1",
+  "arg.1",
+  "rsa.1",
+  "egy.1",
+  "mar.1",
+  "jpn.1",
+  "aus.1",
+];
+
 async function fetchJson<T>(url: string, revalidate = 20): Promise<T> {
   const res = await fetch(url, {
     ...(revalidate < 0 ? { cache: "no-store" as const } : { next: { revalidate } }),
-    headers: { "User-Agent": "ArenaDirect/1.0" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    },
   });
   if (!res.ok) {
     throw new Error(`ESPN ${res.status} for ${url}`);
@@ -286,21 +316,46 @@ function sortMatches(matches: MatchCard[]) {
   });
 }
 
-async function fetchScoreboardDay(dates: string): Promise<MatchCard[]> {
+function mapScoreboard(data: EspnScoreboard, fallbackSlug = "all", fallbackName = "Football") {
+  return (data.events ?? [])
+    .map((event) => {
+      const league = leagueFromEvent(event, fallbackSlug, fallbackName);
+      return mapMatch(event, league.slug, league.name);
+    })
+    .filter((m): m is MatchCard => Boolean(m));
+}
+
+async function fetchScoreboardDay(dates: string, limit = SCOREBOARD_SAFE_LIMIT): Promise<MatchCard[]> {
   try {
     const data = await fetchJson<EspnScoreboard>(
-      `${ESPN_BASE}/all/scoreboard?dates=${dates}&limit=300`,
+      `${ESPN_BASE}/all/scoreboard?dates=${dates}&limit=${limit}`,
       -1,
     );
-    return (data.events ?? [])
-      .map((event) => {
-        const league = leagueFromEvent(event, "all", "Football");
-        return mapMatch(event, league.slug, league.name);
-      })
-      .filter((m): m is MatchCard => Boolean(m));
-  } catch {
+    return mapScoreboard(data);
+  } catch (error) {
+    console.error("fetchScoreboardDay failed", dates, error);
     return [];
   }
+}
+
+async function fetchLeaguesForDay(dates: string): Promise<MatchCard[]> {
+  const slugs = [...new Set(BOARD_SLUGS)];
+  const batches = await Promise.all(
+    slugs.map(async (league) => {
+      try {
+        const data = await fetchJson<EspnScoreboard>(
+          `${ESPN_BASE}/${league}/scoreboard?dates=${dates}&limit=40`,
+          -1,
+        );
+        const leagueName = data.leagues?.[0]?.name ?? getCompetition(league)?.name ?? league;
+        return mapScoreboard(data, league, leagueName);
+      } catch (error) {
+        console.error("fetchLeaguesForDay failed", league, dates, error);
+        return [];
+      }
+    }),
+  );
+  return batches.flat();
 }
 
 function dedupeMatches(matches: MatchCard[]) {
@@ -312,12 +367,16 @@ function dedupeMatches(matches: MatchCard[]) {
 }
 
 export async function fetchDayMatches(date?: string): Promise<MatchCard[]> {
+  await connection();
   const selected = date && /^\d{8}$/.test(date) ? date : espnDate();
   const today = espnDate();
-  const primary = await fetchScoreboardDay(selected);
+  let primary = await fetchScoreboardDay(selected);
+  if (primary.length === 0) {
+    primary = await fetchLeaguesForDay(selected);
+  }
   if (selected !== today) return sortMatches(primary);
 
-  const yesterday = await fetchScoreboardDay(shiftEspnDate(today, -1));
+  const yesterday = await fetchScoreboardDay(shiftEspnDate(today, -1), 80);
   const stillLive = yesterday.filter((match) => match.status === "in");
   return sortMatches(dedupeMatches([...stillLive, ...primary]));
 }

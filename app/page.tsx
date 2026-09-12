@@ -4,7 +4,7 @@ import { Ticker } from "@/components/Ticker";
 import { fetchDayMatches } from "@/lib/espn";
 import Link from "next/link";
 
-export const revalidate = 20;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const matches = await fetchDayMatches();

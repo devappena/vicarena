@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isLeagueSlug } from "@/lib/competitions";
 import { fetchDayMatches, fetchLeagueMatches } from "@/lib/espn";
 
-export const revalidate = 20;
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const league = request.nextUrl.searchParams.get("league");

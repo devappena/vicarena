@@ -3,7 +3,7 @@ import { Scoreboard } from "@/components/Scoreboard";
 import { fetchDayMatches } from "@/lib/espn";
 import { espnDate, formatDayLabel, parseEspnDate } from "@/lib/format";
 
-export const revalidate = 20;
+export const dynamic = "force-dynamic";
 
 export default async function LivePage({
   searchParams,
