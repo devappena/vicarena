@@ -16,7 +16,20 @@ import type {
   TeamSide,
 } from "./types";
 
-const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const ESPN_HOSTS = ["https://site.web.api.espn.com", "https://site.api.espn.com"] as const;
+const ESPN_BASE = `${ESPN_HOSTS[0]}/apis/site/v2/sports/soccer`;
+const ESPN_HEADERS = {
+  Accept: "application/json",
+  Origin: "https://www.espn.com",
+  Referer: "https://www.espn.com/",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+};
+
+function espnCandidates(url: string) {
+  const path = url.replace(/^https:\/\/site\.(web\.)?api\.espn\.com/, "");
+  return ESPN_HOSTS.map((host) => `${host}${path}`);
+}
 
 type EspnStatus = {
   clock?: number;
@@ -122,19 +135,27 @@ const BOARD_SLUGS = [
   "aus.1",
 ];
 
-async function fetchJson<T>(url: string, revalidate = 20): Promise<T> {
+async function fetchJsonOnce<T>(url: string, revalidate = 20): Promise<T> {
   const res = await fetch(url, {
     ...(revalidate < 0 ? { cache: "no-store" as const } : { next: { revalidate } }),
-    headers: {
-      Accept: "application/json",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-    },
+    headers: ESPN_HEADERS,
   });
   if (!res.ok) {
     throw new Error(`ESPN ${res.status} for ${url}`);
   }
   return res.json() as Promise<T>;
+}
+
+async function fetchJson<T>(url: string, revalidate = 20): Promise<T> {
+  let lastError: Error | undefined;
+  for (const candidate of espnCandidates(url)) {
+    try {
+      return await fetchJsonOnce<T>(candidate, revalidate);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  throw lastError ?? new Error(`ESPN failed for ${url}`);
 }
 
 function displayScore(score?: EspnScoreValue) {
@@ -428,7 +449,7 @@ export async function fetchStandings(league: string): Promise<StandingGroup[]> {
         name?: string;
         standings?: { entries?: Parameters<typeof mapStandingRow>[0][] };
       }[];
-    }>(`https://site.api.espn.com/apis/v2/sports/soccer/${league}/standings`, 300);
+    }>(`${ESPN_HOSTS[0]}/apis/v2/sports/soccer/${league}/standings`, 300);
     const children = data.children ?? [];
     if (children.length > 0) {
       return children
@@ -656,11 +677,8 @@ export async function fetchTeam(id: string, league?: string): Promise<TeamProfil
   for (const slug of slugs) {
     const candidates =
       slug === "all"
-        ? [`https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${id}`]
-        : [
-            `${ESPN_BASE}/${slug}/teams/${id}`,
-            `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${id}`,
-          ];
+        ? [`${ESPN_BASE}/teams/${id}`]
+        : [`${ESPN_BASE}/${slug}/teams/${id}`, `${ESPN_BASE}/teams/${id}`];
     for (const url of candidates) {
       try {
         const data = await fetchJson<{
@@ -701,8 +719,8 @@ export async function fetchTeam(id: string, league?: string): Promise<TeamProfil
 export async function fetchTeamSchedule(id: string, league?: string): Promise<MatchCard[]> {
   const slug = league && league !== "all" ? league : undefined;
   const urls = slug
-    ? [`${ESPN_BASE}/${slug}/teams/${id}/schedule`, `https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${id}/schedule`]
-    : [`https://site.api.espn.com/apis/site/v2/sports/soccer/teams/${id}/schedule`];
+    ? [`${ESPN_BASE}/${slug}/teams/${id}/schedule`, `${ESPN_BASE}/teams/${id}/schedule`]
+    : [`${ESPN_BASE}/teams/${id}/schedule`];
   for (const url of urls) {
     try {
       const data = await fetchJson<EspnScoreboard & { team?: EspnTeam }>(url, 120);

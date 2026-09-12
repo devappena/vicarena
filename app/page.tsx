@@ -5,6 +5,7 @@ import { fetchDayMatches } from "@/lib/espn";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
 export default async function HomePage() {
   const matches = await fetchDayMatches();

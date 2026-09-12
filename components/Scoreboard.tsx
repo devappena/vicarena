@@ -26,17 +26,23 @@ export function Scoreboard({
 
   useEffect(() => {
     if (!live) return;
-    const timer = setInterval(async () => {
+    let cancelled = false;
+    const load = async () => {
       const params = new URLSearchParams();
       if (league) params.set("league", league);
       if (date) params.set("date", date);
       const res = await fetch(`/api/matches?${params.toString()}`, { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok || cancelled) return;
       const data = (await res.json()) as { matches: MatchCard[] };
-      setMatches(data.matches);
-    }, 25000);
-    return () => clearInterval(timer);
-  }, [date, league, live]);
+      if (!cancelled) setMatches(data.matches);
+    };
+    if (initial.length === 0) void load();
+    const timer = setInterval(load, 25000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [date, initial.length, league, live]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -3,6 +3,7 @@ import { isLeagueSlug } from "@/lib/competitions";
 import { fetchDayMatches, fetchLeagueMatches } from "@/lib/espn";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
 export async function GET(request: NextRequest) {
   const league = request.nextUrl.searchParams.get("league");

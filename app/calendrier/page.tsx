@@ -4,6 +4,7 @@ import { fetchDayMatches } from "@/lib/espn";
 import { espnDate, formatDayLabel, parseEspnDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
 export default async function CalendarPage({
   searchParams,
