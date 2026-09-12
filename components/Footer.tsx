@@ -5,7 +5,6 @@ export function Footer() {
         Arena Direct agrège les scores en direct et indique les diffuseurs officiels. Aucun flux
         pirate n&apos;est hébergé ou intégré.
       </p>
-      <p className="mt-2">Prêt pour un déploiement Vercel.</p>
     </footer>
   );
 }
